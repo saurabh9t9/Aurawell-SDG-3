@@ -17,7 +17,7 @@ The server serves `dist/` when `NODE_ENV=production`. The deployment environment
 
 ## Vercel status
 
-The current project does **not** include a Vercel serverless-function adapter or routing configuration. Deploying only the Vite static build to Vercel will serve the frontend but will not provide the Express API routes (`/api/health`, `/api/wellness-chat`, or `/api/symptom-triage`).
+A root `vercel.json` is included to serve the Vite SPA and preserve client-side routes on Vercel. This configuration supports the frontend build, but it does not provide the Express API routes (`/api/health`, `/api/wellness-chat`, or `/api/symptom-triage`) on Vercel by itself.
 
 Before hosting on Vercel, migrate or wrap the Express endpoints as Vercel Functions and configure the SPA/API routes; then add `GEMINI_API_KEY` and `GEMINI_MODEL` as private project environment variables. Never add the Gemini key to a `VITE_*` variable or client bundle.
 
