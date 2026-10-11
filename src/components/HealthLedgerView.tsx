@@ -356,21 +356,25 @@ export const HealthLedgerView: React.FC<HealthLedgerViewProps> = ({
           {filteredEntries.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <div className="text-sm font-semibold text-slate-900">
-                No matching screening logs found
+                {entries.length === 0 ? 'No screening records yet' : 'No matching screening logs found'}
               </div>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Adjust your search query or status filter, or log a new check-in entry above to populate the longitudinal ledger.
+                {entries.length === 0
+                  ? 'Complete a wellness check-in or symptom triage, or add a record to start your health ledger.'
+                  : 'Adjust your search query or status filter, or log a new check-in entry above.'}
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery('');
-                  setStatusFilter('ALL');
-                }}
-                className="px-3.5 py-1.5 text-xs font-medium text-white bg-slate-900 rounded-lg cursor-pointer"
-              >
-                Reset Filters
-              </button>
+              {entries.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setStatusFilter('ALL');
+                  }}
+                  className="px-3.5 py-1.5 text-xs font-medium text-white bg-slate-900 rounded-lg cursor-pointer"
+                >
+                  Reset Filters
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -544,7 +548,9 @@ export const HealthLedgerView: React.FC<HealthLedgerViewProps> = ({
             </>
           ) : (
             <div className="py-8 text-center text-xs text-slate-500">
-              Select any screening record from the table to inspect full vitals and intervention details.
+              {entries.length === 0
+                ? 'Record details will appear here after you add your first health ledger entry.'
+                : 'Select any screening record from the table to inspect full vitals and intervention details.'}
             </div>
           )}
         </div>

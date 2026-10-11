@@ -9,7 +9,7 @@ AuraWell is a web-based wellness and early symptom-triage prototype aligned with
 - **AuraWell Assistant** — a general-purpose conversational assistant powered by the configured Gemini model.
 - **Symptom Triage** — submit selected symptoms, age, temperature, resting heart rate, symptom duration, sleep, and optional notes for an AI-generated non-diagnostic assessment.
 - **Input-based screening index** — a deterministic score calculated from the triage inputs, with its contributing factors shown in the result.
-- **Health Ledger** — view and manage check-ins during the current browser session. Initial entries are demonstration data.
+- **Health Ledger** — view and manage check-ins during the current browser session. The ledger starts empty and displays only records added during your session.
 
 The app navigation contains these three views. Lean Canvas and Submission Kit are not part of the current UI. The Lean Canvas in [LEAN_CANVAS.md](./LEAN_CANVAS.md) is project documentation only.
 

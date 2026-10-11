@@ -37,7 +37,7 @@
 - `src/components/WellnessAgentView.tsx` implements the general AuraWell Assistant interface, check-in controls, and breathing exercise.
 - `src/components/SymptomTriageView.tsx` gathers current symptoms and biometrics, requests an assessment, displays the exact assessed inputs and score factors, and allows the result to be added to the ledger.
 - `src/components/HealthLedgerView.tsx` displays, filters, adds, deletes, and exports ledger records.
-- `src/data/sdg3Data.ts` contains shared TypeScript types, symptom options, check-in questions, and initial demonstration entries.
+- `src/data/sdg3Data.ts` contains shared TypeScript types, symptom options, check-in questions, and an empty initial health ledger.
 - `src/index.css` defines Tailwind imports, font variables, base styles, and print behavior.
 
 ### Server
@@ -57,4 +57,4 @@
 
 ## Current persistence boundary
 
-There is no database or account system in the current application. Initial ledger records are demonstration data, and user-added records are kept in React state. Refreshing the page resets those changes.
+There is no database or account system in the current application. The ledger starts empty, and user-added records are kept in React state. Refreshing the page resets those changes.
