@@ -17,7 +17,7 @@ The server serves `dist/` when `NODE_ENV=production`. The deployment environment
 
 ## Vercel
 
-The root `vercel.json` builds the Vite frontend and preserves client-side routes. The catch-all function in `api/` runs the Express API routes (`/api/health`, `/api/wellness-chat`, and `/api/symptom-triage`) as Vercel Functions. Configure `GEMINI_API_KEY` and optionally `GEMINI_MODEL` as private project environment variables. Never add the Gemini key to a `VITE_*` variable or client bundle.
+The root `vercel.json` builds the Vite frontend. The catch-all function in `api/` runs the Express API routes (`/api/health`, `/api/wellness-chat`, and `/api/symptom-triage`) as Vercel Functions. This app does not use pathname-based client routes, so no SPA rewrite is needed; leaving API paths untouched ensures they reach the function. Configure `GEMINI_API_KEY` and optionally `GEMINI_MODEL` as private project environment variables. Never add the Gemini key to a `VITE_*` variable or client bundle.
 
 ## Operational and safety checklist
 
