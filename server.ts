@@ -9,6 +9,67 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-3.5-flash-lite';
+
+type WellnessConversationTurn = {
+  role: 'user' | 'assistant';
+  text: string;
+};
+
+function parseWellnessConversationHistory(value: unknown): WellnessConversationTurn[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter(
+      (turn): turn is WellnessConversationTurn =>
+        typeof turn === 'object' &&
+        turn !== null &&
+        (turn.role === 'user' || turn.role === 'assistant') &&
+        typeof turn.text === 'string'
+    )
+    .slice(-12)
+    .map((turn) => ({ role: turn.role, text: turn.text.trim().slice(0, 2000) }))
+    .filter((turn) => turn.text.length > 0);
+}
+
+function getGeminiStatus(error: unknown): number | undefined {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    typeof error.status === 'number'
+  ) {
+    return error.status;
+  }
+  return undefined;
+}
+
+async function generateGeminiContent(
+  ai: GoogleGenAI,
+  request: Parameters<GoogleGenAI['models']['generateContent']>[0]
+) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await ai.models.generateContent(request);
+    } catch (error) {
+      const status = getGeminiStatus(error);
+      if ((status !== 429 && status !== 503) || attempt >= 2) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
+    }
+  }
+}
+
+function getGeminiErrorMessage(error: unknown): string {
+  const status = getGeminiStatus(error);
+  if (status === 401 || status === 403) {
+    return 'AuraWell Assistant is temporarily unable to connect to its AI service. Please check the server configuration.';
+  }
+  if (status === 429) {
+    return 'AuraWell Assistant is receiving too many requests right now. Please try again later.';
+  }
+  if (status === 503) return 'AuraWell Assistant is temporarily unavailable. Please try again shortly.';
+  return `AuraWell Assistant could not complete this request${status ? ` (HTTP ${status})` : ''}. Please try again.`;
+}
 
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -25,184 +86,158 @@ function getGeminiClient(): GoogleGenAI | null {
   });
 }
 
-function buildFallbackWellnessReply(message: string, moodScore: number, triggers: string[], phqScore: number): {
-  reply: string;
-  cognitiveReframe: string;
-  recommendedAction: string;
-  breathingCadence: string;
-  sdgTarget: string;
-} {
-  const lower = message.toLowerCase();
-  const triggerText = triggers.length > 0 ? triggers.join(', ') : 'academic and daily transition pressures';
-
-  if (lower.includes('exam') || lower.includes('study') || lower.includes('grade') || lower.includes('academic') || lower.includes('college')) {
-    return {
-      reply: `Thank you for sharing how deeply ${triggerText} is weighing on you right now. Experiencing heightened tension before academic milestones is a physiological stress response—not a reflection of your capability or preparation. Let's break the overwhelm down into manageable 25-minute micro-blocks so your nervous system can step out of fight-or-flight mode.`,
-      cognitiveReframe: 'Instead of "If I don’t master everything tonight, I will fail," try: "Completing one focused 25-minute review block moves me measurably forward."',
-      recommendedAction: 'Write down the single most important topic to review for 25 minutes, close all other tabs, and take a 5-minute hydration walk afterward.',
-      breathingCadence: '4-7-8 Parasympathetic Reset (Inhale 4s · Hold 7s · Exhale 8s)',
-      sdgTarget: 'UN SDG Target 3.4 — Youth Mental Health & Preventive Resilience',
-    };
-  }
-
-  if (lower.includes('sleep') || lower.includes('tired') || lower.includes('insomnia') || lower.includes('exhausted')) {
-    return {
-      reply: `Sleep disruption and racing thoughts often reinforce each other, especially when your current wellness score is ${moodScore}/10. Rather than forcing sleep, focus on lowering cognitive arousal and physical muscle tension over the next 20 minutes.`,
-      cognitiveReframe: 'Instead of "I won’t be able to function tomorrow if I don’t sleep right now," try: "Resting my body quietly in a dark room still restores my nervous system."',
-      recommendedAction: 'Perform a 3-minute brain dump on paper to offload tomorrow’s tasks, dim screens, and run 4 cycles of Box Breathing.',
-      breathingCadence: '4-4-4-4 Box Breathing (Inhale 4s · Hold 4s · Exhale 4s · Hold 4s)',
-      sdgTarget: 'UN SDG Target 3.4 — Circadian & Mental Well-Being Support',
-    };
-  }
-
-  if (lower.includes('anxious') || lower.includes('panic') || lower.includes('overwhelmed') || lower.includes('stress') || phqScore >= 6) {
-    return {
-      reply: `I hear how overwhelming things feel right now. With your screening indicator at ${phqScore}/12 and ${triggerText} active, your sympathetic nervous system is working overtime. Let's anchor your attention in the present physical environment before tackling any external decisions.`,
-      cognitiveReframe: 'Instead of "Everything is spiraling out of control at once," try: "I am experiencing a temporary wave of anxiety, and I only need to handle the next 10 minutes."',
-      recommendedAction: 'Practice the 5-4-3-2-1 sensory grounding protocol: name 5 things you see, 4 you can touch, 3 you hear, 2 you smell, and 1 steady breath.',
-      breathingCadence: 'Physiological Sigh (Double Inhale 4s · Slow Extended Exhale 8s)',
-      sdgTarget: 'UN SDG Target 3.4 — Early Anxiety Screening & De-escalation',
-    };
-  }
-
-  return {
-    reply: `Thank you for checking in today. Tracking your mental state (currently ${moodScore}/10 alongside ${triggerText}) is one of the strongest protective habits for long-term resilience. Let's focus on one small, restorative action you can take within the next hour to protect your energy.`,
-    cognitiveReframe: 'Instead of "I have to solve every challenge immediately," try: "Consistent small check-ins build sustainable emotional clarity."',
-    recommendedAction: 'Step away from your workspace for 5 minutes, drink 250ml of water, and complete a brief posture and shoulder release.',
-    breathingCadence: 'Coherent Breathing (Inhale 5s · Exhale 5s at 6 breaths/min)',
-    sdgTarget: 'UN SDG Target 3.4 — Proactive Youth Mental Wellness Check-In',
-  };
-}
-
-function buildFallbackTriageResult(payload: {
+function calculateRiskScore(payload: {
   symptoms: string[];
   durationDays: number;
   temperatureC: number;
   heartRateBpm: number;
   sleepHours: number;
   age: number;
-  notes: string;
-}) {
-  const { symptoms, durationDays, temperatureC, heartRateBpm, sleepHours } = payload;
-  const hasHighFever = temperatureC >= 38.5;
-  const hasTachycardia = heartRateBpm >= 105;
-  const hasResp = symptoms.some((s) =>
-    ['Shortness of Breath', 'Chest Tightness', 'Persistent Cough'].includes(s)
+}): { score: number; factors: string[] } {
+  const factors: string[] = ['Baseline +5'];
+  let score = 5;
+  const addFactor = (label: string, points: number) => {
+    if (points <= 0) return;
+    score += points;
+    factors.push(`${label} +${points}`);
+  };
+
+  const temperaturePoints =
+    payload.temperatureC >= 40 ? 28 :
+    payload.temperatureC >= 39 ? 22 :
+    payload.temperatureC >= 38 ? 14 :
+    payload.temperatureC >= 37.5 ? 7 :
+    payload.temperatureC >= 37.2 ? 3 : 0;
+  addFactor('Temperature', temperaturePoints);
+
+  const heartRatePoints =
+    payload.heartRateBpm >= 130 ? 25 :
+    payload.heartRateBpm >= 120 ? 20 :
+    payload.heartRateBpm >= 110 ? 16 :
+    payload.heartRateBpm >= 100 ? 12 :
+    payload.heartRateBpm >= 90 ? 6 :
+    payload.heartRateBpm >= 80 ? 3 : 0;
+  addFactor('Heart rate', heartRatePoints);
+
+  const symptomWeights: Record<string, number> = {
+    'Shortness of Breath': 18,
+    'Chest Tightness': 15,
+    'Severe Headache': 8,
+    'Dizziness / Lightheadedness': 7,
+    'Chills / Sweats': 5,
+    'Body Aches / Myalgia': 4,
+    'Swollen Lymph Nodes': 4,
+    'Persistent Cough': 4,
+    'Sore Throat': 3,
+    'Nasal Congestion': 2,
+    'Unexplained Fatigue': 3,
+    'Brain Fog / Poor Concentration': 3,
+    Insomnia: 2,
+    Nausea: 3,
+    'Abdominal Cramping': 4,
+    'Loss of Appetite': 2,
+  };
+  const symptomPoints = Math.min(
+    32,
+    payload.symptoms.reduce((total, symptom) => total + (symptomWeights[symptom] ?? 2), 0)
   );
-  const hasNeuro = symptoms.some((s) =>
-    ['Severe Headache', 'Dizziness / Lightheadedness', 'Visual Aura'].includes(s)
+  addFactor('Symptoms', symptomPoints);
+
+  addFactor(
+    'Age',
+    payload.age < 5 ? 5 : payload.age < 13 ? 2 : payload.age >= 75 ? 8 : payload.age >= 65 ? 6 : payload.age >= 50 ? 3 : 0
   );
+  addFactor('Duration', payload.durationDays > 7 ? 8 : payload.durationDays > 3 ? 5 : payload.durationDays > 1 ? 2 : 0);
+  addFactor('Sleep', payload.sleepHours < 4 ? 5 : payload.sleepHours < 6 ? 3 : 0);
 
-  let urgencyLevel: 'Routine Self-Care' | 'Non-Urgent Clinical Consult' | 'Urgent Medical Evaluation' =
-    'Routine Self-Care';
-  let riskScore = 24;
+  return { score: Math.min(100, score), factors };
+}
 
-  if ((hasHighFever && hasResp) || symptoms.includes('Shortness of Breath') || symptoms.includes('Chest Tightness') || temperatureC >= 39.2 || heartRateBpm >= 118) {
-    urgencyLevel = 'Urgent Medical Evaluation';
-    riskScore = 78;
-  } else if (hasHighFever || hasTachycardia || durationDays >= 5 || symptoms.length >= 3 || hasNeuro) {
-    urgencyLevel = 'Non-Urgent Clinical Consult';
-    riskScore = 54;
-  } else {
-    riskScore = Math.min(42, 18 + symptoms.length * 7 + (sleepHours < 6 ? 6 : 0));
-  }
-
-  const primaryPattern = hasResp
-    ? 'Upper / Lower Respiratory Inflammatory Pattern'
-    : hasNeuro
-    ? 'Neuro-Vascular & Autonomic Fatigue Pattern'
-    : hasHighFever
-    ? 'Acute Febrile Viral / Systemic Immune Response'
-    : 'Sub-Acute Stress & Mild Somatic Fatigue Cluster';
-
+function buildFallbackWellnessReply(): {
+  reply: string;
+  perspective: string;
+  nextStep: string;
+  breathingSuggestion: string;
+  healthReference: string;
+} {
   return {
-    urgencyLevel,
-    riskScore,
-    primaryPattern,
-    clinicalSummary: `Multi-parameter screening across ${symptoms.length} reported symptom(s) lasting ${durationDays} day(s), body temperature ${temperatureC.toFixed(1)}°C, resting heart rate ${heartRateBpm} BPM, and ${sleepHours}h/night sleep recovery indicates a ${urgencyLevel.toLowerCase()} pathway.`,
-    differentialConsiderations: [
-      hasResp
-        ? 'Viral upper respiratory tract infection or post-viral bronchial reactivity'
-        : 'Circadian depletion and autonomic stress-response somatization',
-      hasHighFever
-        ? 'Acute systemic febrile illness warranting antipyretic & hydration monitoring'
-        : 'Dehydration or micronutrient/electrolyte imbalance contributing to fatigue',
-      durationDays >= 5
-        ? 'Secondary bacterial superinfection or persistent inflammatory course (>5 days)'
-        : 'Early prodromal phase requiring 24–48 hour symptom trajectory tracking',
-    ],
-    immediateNextSteps: [
-      urgencyLevel === 'Urgent Medical Evaluation'
-        ? 'Arrange same-day clinical assessment at an urgent care clinic or campus health center.'
-        : urgencyLevel === 'Non-Urgent Clinical Consult'
-        ? 'Schedule a primary care or telemedicine appointment within 24–48 hours.'
-        : 'Maintain structured home monitoring, oral hydration (2.5L/day), and restorative sleep (>=7.5h).',
-      `Re-measure temperature (${temperatureC.toFixed(1)}°C) and resting pulse (${heartRateBpm} BPM) every 6 hours.`,
-      'Log any progression in symptom intensity into the SDG 3 Health Ledger for clinician review.',
-    ],
-    redFlagsToWatch: [
-      'Resting shortness of breath, difficulty speaking full sentences, or persistent chest pain',
-      'Fever exceeding 39.4°C (103°F) unresponsive to standard antipyretics',
-      'New confusion, severe neck stiffness, or inability to keep fluids down for >12 hours',
-    ],
+    reply: 'AuraWell Assistant is not configured yet. Please ask the site administrator to configure the AI service.',
+    perspective: '',
+    nextStep: '',
+    breathingSuggestion: '',
+    healthReference: '',
   };
 }
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
 
   app.use(express.json());
 
+  app.get('/api/health', (_req, res) => {
+    res.json({
+      status: 'ok',
+      geminiConfigured: Boolean(process.env.GEMINI_API_KEY?.trim()),
+      model: GEMINI_MODEL,
+    });
+  });
+
   app.post('/api/wellness-chat', async (req, res) => {
-    const { message = '', moodScore = 6, triggers = [], phqScore = 3 } = req.body || {};
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+    const history = parseWellnessConversationHistory(req.body?.history);
+    if (!message) {
+      return res.status(400).json({ error: 'Enter a message before sending.' });
+    }
+
     const ai = getGeminiClient();
 
     if (!ai) {
       return res.json({
-        ...buildFallbackWellnessReply(message, moodScore, triggers, phqScore),
+        ...buildFallbackWellnessReply(),
         source: 'clinical-engine',
       });
     }
 
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: `User Check-in Message: "${message}"
-Current Mood Rating: ${moodScore}/10
-Active Stress Triggers: ${triggers.join(', ') || 'None specified'}
-PHQ-4 / GAD-7 Brief Screening Score: ${phqScore}/12
-
-Provide a compassionate, evidence-based youth mental wellness check-in response aligned with UN SDG 3 (Good Health and Well-being, Target 3.4).`,
+      const response = await generateGeminiContent(ai, {
+        model: GEMINI_MODEL,
+        contents: [
+          ...history.map((turn) => ({
+            role: turn.role === 'assistant' ? 'model' as const : 'user' as const,
+            parts: [{ text: turn.text }],
+          })),
+          { role: 'user' as const, parts: [{ text: message }] },
+        ],
         config: {
           systemInstruction:
-            'You are AuraWell, an empathetic, evidence-based youth mental health screening and support agent built for UN SDG 3 (Good Health and Well-being). Use Cognitive Behavioral Therapy (CBT) framing, validate emotions without diagnosing, keep responses concise (3-4 sentences), and provide practical grounding actions.',
+            'You are AuraWell, a warm, flexible conversational assistant. Answer the user’s actual question directly across topics including learning, science, technology, planning, relationships, work, hobbies, and wellbeing. Use recent conversation turns to understand references and continue the same topic; for example, if asked to simplify a prior answer, simplify that answer rather than changing topics. Do not force replies into exams, CBT, mental-health, breathing, or SDG framing unless the user’s request makes it relevant. Be concise, natural, and useful. Ask a clarifying question only when needed. For mental or physical health topics, be supportive and non-diagnostic, and recommend professional or emergency help when appropriate.',
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
             properties: {
               reply: {
                 type: Type.STRING,
-                description: 'Empathetic, validating 3-4 sentence response to the youth user.',
+                description: 'A clear, natural answer to the current user message in conversation context.',
               },
-              cognitiveReframe: {
+              perspective: {
                 type: Type.STRING,
-                description: 'A concrete CBT thought reframe ("Instead of X, try Y").',
+                description: 'Optional additional explanation or perspective relevant to the user topic; empty when unnecessary.',
               },
-              recommendedAction: {
+              nextStep: {
                 type: Type.STRING,
-                description: 'One specific, actionable 5-15 minute micro-habit.',
+                description: 'Optional practical next step relevant to the topic; empty when unnecessary.',
               },
-              breathingCadence: {
+              breathingSuggestion: {
                 type: Type.STRING,
-                description: 'Recommended breathing pattern with seconds.',
+                description: 'Optional breathing suggestion only when relevant to wellbeing; otherwise empty.',
               },
-              sdgTarget: {
+              healthReference: {
                 type: Type.STRING,
-                description: 'Relevant UN SDG 3 target reference.',
+                description: 'Optional relevant health or SDG reference; empty for unrelated topics.',
               },
             },
-            required: ['reply', 'cognitiveReframe', 'recommendedAction', 'breathingCadence', 'sdgTarget'],
+            required: ['reply', 'perspective', 'nextStep', 'breathingSuggestion', 'healthReference'],
           },
         },
       });
@@ -210,23 +245,33 @@ Provide a compassionate, evidence-based youth mental wellness check-in response 
       const text = response.text;
       if (text) {
         const parsed = JSON.parse(text.trim());
-        return res.json({ ...parsed, source: 'gemini-3.8-flash' });
+        if (
+          typeof parsed.reply !== 'string' ||
+          typeof parsed.perspective !== 'string' ||
+          typeof parsed.nextStep !== 'string' ||
+          typeof parsed.breathingSuggestion !== 'string' ||
+          typeof parsed.healthReference !== 'string'
+        ) {
+          throw new Error('Gemini returned an invalid response shape.');
+        }
+        return res.json({ ...parsed, source: GEMINI_MODEL });
       }
-      return res.json({
-        ...buildFallbackWellnessReply(message, moodScore, triggers, phqScore),
-        source: 'clinical-engine',
-      });
-    } catch (_error) {
-      return res.json({
-        ...buildFallbackWellnessReply(message, moodScore, triggers, phqScore),
-        source: 'clinical-engine',
-      });
+      console.error('AuraWell assistant request returned an empty response.');
+      return res.status(502).json({ error: 'AuraWell Assistant could not provide a response. Please try again.' });
+    } catch (error) {
+      const status = getGeminiStatus(error);
+      console.error(`Gemini wellness request failed (HTTP ${status ?? 'unknown'}).`);
+      return res.status(502).json({ error: getGeminiErrorMessage(error) });
     }
   });
 
   app.post('/api/symptom-triage', async (req, res) => {
+    if (!Array.isArray(req.body?.symptoms) || req.body.symptoms.length === 0) {
+      return res.status(400).json({ error: 'Select at least one symptom before analysis.' });
+    }
+
     const payload = {
-      symptoms: Array.isArray(req.body?.symptoms) ? req.body.symptoms : ['Fatigue'],
+      symptoms: req.body.symptoms.filter((symptom: unknown): symptom is string => typeof symptom === 'string').slice(0, 20),
       durationDays: Number(req.body?.durationDays ?? 2),
       temperatureC: Number(req.body?.temperatureC ?? 37.0),
       heartRateBpm: Number(req.body?.heartRateBpm ?? 76),
@@ -235,28 +280,51 @@ Provide a compassionate, evidence-based youth mental wellness check-in response 
       notes: String(req.body?.notes ?? ''),
     };
 
+    if (
+      payload.symptoms.length === 0 ||
+      !Number.isFinite(payload.durationDays) ||
+      payload.durationDays < 1 ||
+      payload.durationDays > 365 ||
+      !Number.isFinite(payload.temperatureC) ||
+      payload.temperatureC < 30 ||
+      payload.temperatureC > 45 ||
+      !Number.isFinite(payload.heartRateBpm) ||
+      payload.heartRateBpm < 20 ||
+      payload.heartRateBpm > 250 ||
+      !Number.isFinite(payload.sleepHours) ||
+      payload.sleepHours < 0 ||
+      payload.sleepHours > 24 ||
+      !Number.isFinite(payload.age) ||
+      payload.age < 1 ||
+      payload.age > 120 ||
+      payload.notes.length > 2000
+    ) {
+      return res.status(400).json({ error: 'Enter valid symptom and vital-sign information.' });
+    }
+
     const ai = getGeminiClient();
     if (!ai) {
-      return res.json({
-        ...buildFallbackTriageResult(payload),
-        source: 'clinical-engine',
+      return res.status(503).json({
+        error: 'AuraWell AI is not configured. Ask the site administrator to configure the AI service.',
       });
     }
 
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: `Perform early disease detection and preventative symptom triage for UN SDG 3:
-Age: ${payload.age}
-Reported Symptoms: ${payload.symptoms.join(', ')}
-Symptom Duration: ${payload.durationDays} days
-Body Temperature: ${payload.temperatureC} °C
-Resting Heart Rate: ${payload.heartRateBpm} BPM
-Average Sleep: ${payload.sleepHours} hours/night
-Additional Context: ${payload.notes || 'None'}`,
+      const response = await generateGeminiContent(ai, {
+        model: GEMINI_MODEL,
+        contents: `Create a patient-specific, non-diagnostic symptom triage assessment for this exact current input. Do not copy a generic sample or assume default values.
+Age: ${payload.age} years
+Selected symptoms (and only these reported symptoms): ${payload.symptoms.join(', ')}
+Symptom duration: ${payload.durationDays} days
+Measured body temperature: ${payload.temperatureC} °C
+Resting heart rate: ${payload.heartRateBpm} BPM
+Average sleep: ${payload.sleepHours} hours/night
+Additional context: ${payload.notes || 'None'}
+
+Mention the supplied age, duration, selected symptoms, temperature, and heart rate accurately in the clinical summary. Explain how this particular combination of symptoms and measurements informs urgency; do not describe vital signs as abnormal if they are in a normal range. Consider the patient's age in the assessment. Make each differential and next step specifically relevant to the supplied symptoms, while retaining prudent emergency red flags. Never claim a symptom was reported unless it appears in the selected symptom list or additional context.`,
         config: {
           systemInstruction:
-            'You are an AI Early Disease Detection & Symptom Triage decision-support agent for UN SDG 3 (Targets 3.3, 3.4, 3.8). Provide clear non-diagnostic clinical risk stratification, differential considerations, actionable preventative steps, and red-flag warnings.',
+            'You are AuraWell AI, an early symptom-triage decision-support agent. Use only the symptoms, vitals, duration, age, and context supplied in this request. Tailor every assessment field to those inputs; do not reuse generic canned assessments or invent unreported symptoms. This is not a diagnosis: express uncertainty, avoid overstating risk, and recommend professional care when appropriate. If the reported information suggests an emergency, clearly prioritize immediate emergency services regardless of the score.',
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
@@ -265,17 +333,13 @@ Additional Context: ${payload.notes || 'None'}`,
                 type: Type.STRING,
                 description: 'Must be one of: "Routine Self-Care", "Non-Urgent Clinical Consult", or "Urgent Medical Evaluation"',
               },
-              riskScore: {
-                type: Type.INTEGER,
-                description: 'Numeric risk index between 10 and 95',
-              },
               primaryPattern: {
                 type: Type.STRING,
                 description: 'Concise clinical pattern title',
               },
               clinicalSummary: {
                 type: Type.STRING,
-                description: '2-3 sentence synthesis of vitals and symptom cluster',
+                description: 'A patient-specific 2-3 sentence synthesis that accurately repeats the supplied age, symptoms, duration, temperature, and heart rate, and explains this particular combination.',
               },
               differentialConsiderations: {
                 type: Type.ARRAY,
@@ -295,7 +359,6 @@ Additional Context: ${payload.notes || 'None'}`,
             },
             required: [
               'urgencyLevel',
-              'riskScore',
               'primaryPattern',
               'clinicalSummary',
               'differentialConsiderations',
@@ -308,18 +371,65 @@ Additional Context: ${payload.notes || 'None'}`,
 
       const text = response.text;
       if (text) {
-        const parsed = JSON.parse(text.trim());
-        return res.json({ ...parsed, source: 'gemini-3.8-flash' });
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(text.trim());
+        } catch {
+          console.error('AuraWell AI symptom-triage response was not valid JSON.');
+          return res.status(502).json({
+            error: 'AuraWell AI returned an unreadable assessment. Please try again.',
+          });
+        }
+        if (typeof parsed !== 'object' || parsed === null) {
+          console.error('AuraWell AI symptom-triage response was not a JSON object.');
+          return res.status(502).json({
+            error: 'AuraWell AI returned an incomplete assessment. Please try again.',
+          });
+        }
+        const result = parsed as Record<string, unknown>;
+        const validList = (value: unknown) =>
+          Array.isArray(value) && value.every((item) => typeof item === 'string' && item.trim().length > 0);
+        if (
+          !['Routine Self-Care', 'Non-Urgent Clinical Consult', 'Urgent Medical Evaluation'].includes(String(result.urgencyLevel)) ||
+          typeof result.primaryPattern !== 'string' ||
+          typeof result.clinicalSummary !== 'string' ||
+          !validList(result.differentialConsiderations) ||
+          !validList(result.immediateNextSteps) ||
+          !validList(result.redFlagsToWatch)
+        ) {
+          console.error('AuraWell AI symptom-triage response did not match the required assessment format.');
+          return res.status(502).json({
+            error: 'AuraWell AI returned an incomplete assessment. Please try again.',
+          });
+        }
+        const riskAssessment = calculateRiskScore(payload);
+        return res.json({
+          ...parsed,
+          riskScore: riskAssessment.score,
+          riskScoreFactors: riskAssessment.factors,
+          source: 'AuraWell AI',
+          assessedInputs: payload,
+        });
       }
-      return res.json({
-        ...buildFallbackTriageResult(payload),
-        source: 'clinical-engine',
+      console.error('AuraWell AI symptom-triage request returned an empty response.');
+      return res.status(502).json({
+        error: 'AuraWell AI could not provide a triage assessment. Please try again.',
       });
-    } catch (_error) {
-      return res.json({
-        ...buildFallbackTriageResult(payload),
-        source: 'clinical-engine',
-      });
+    } catch (error) {
+      const status = getGeminiStatus(error);
+      console.error(
+        `AuraWell AI symptom-triage request failed (HTTP ${status ?? 'unknown'}):`,
+        error instanceof Error ? error.message : 'Unrecognized error'
+      );
+      const message =
+        status === 401 || status === 403
+          ? 'AuraWell AI is unable to connect to its service. Ask the site administrator to check the AI configuration.'
+          : status === 429
+          ? 'AuraWell AI is receiving too many requests. Please try again later.'
+          : status === 503
+          ? 'AuraWell AI is temporarily unavailable. Please try again shortly.'
+          : 'AuraWell AI could not complete the assessment. Please try again.';
+      return res.status(502).json({ error: message });
     }
   });
 

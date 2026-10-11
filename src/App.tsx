@@ -1,23 +1,13 @@
 import React, { useState } from 'react';
-import {
-  INITIAL_HEALTH_LEDGER,
-  CheckInLogEntry,
-  LEAN_CANVAS_PRESETS,
-  INITIAL_CONCEPT_NOTE,
-  PRESENTATION_SLIDES,
-} from './data/sdg3Data';
+import { INITIAL_HEALTH_LEDGER, CheckInLogEntry } from './data/sdg3Data';
 import { WellnessAgentView } from './components/WellnessAgentView';
 import { SymptomTriageView } from './components/SymptomTriageView';
 import { HealthLedgerView } from './components/HealthLedgerView';
-import { LeanCanvasView } from './components/LeanCanvasView';
-import { SubmissionKitView } from './components/SubmissionKitView';
 
 type ActiveTab =
   | 'wellness_agent'
   | 'symptom_triage'
-  | 'health_ledger'
-  | 'lean_canvas'
-  | 'submission_kit';
+  | 'health_ledger';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('wellness_agent');
@@ -31,83 +21,6 @@ export default function App() {
 
   const handleDeleteLedgerEntry = (id: string) => {
     setLedgerEntries((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const handleExportFullSubmissionPack = () => {
-    const canvas = LEAN_CANVAS_PRESETS.combined;
-    const bundle = `# IBM SkillsBuild Masterclass 5 — Complete SDG 3 Project Submission Bundle
-**Project:** AuraWell — AI-Powered Youth Mental Wellness & Early Disease Symptom Triage Platform  
-**Goal:** UN Sustainable Development Goal 3 (Good Health and Well-being · Targets 3.4 & 3.8)  
-**Generated:** October 2026
-
-================================================================================
-PART 1: LEAN CANVAS (9-BLOCK ARCHITECTURE)
-================================================================================
-
-### 1. Problem
-${canvas.problem.map((p) => `- ${p}`).join('\n')}
-
-**Existing Alternatives:**
-${canvas.existingAlternatives.map((a) => `- ${a}`).join('\n')}
-
-### 2. Customer Segments
-${canvas.customerSegments.map((c) => `- ${c}`).join('\n')}
-
-**Early Adopters:**
-${canvas.earlyAdopters.map((e) => `- ${e}`).join('\n')}
-
-### 3. Unique Value Proposition
-${canvas.uniqueValueProposition}
-**High-Level Concept:** ${canvas.highLevelConcept}
-
-### 4. Solution
-${canvas.solution.map((s) => `- ${s}`).join('\n')}
-
-### 5. Channels
-${canvas.channels.map((ch) => `- ${ch}`).join('\n')}
-
-### 6. Revenue Streams
-${canvas.revenueStreams.map((r) => `- ${r}`).join('\n')}
-
-### 7. Cost Structure
-${canvas.costStructure.map((c) => `- ${c}`).join('\n')}
-
-### 8. Key Metrics
-${canvas.keyMetrics.map((k) => `- ${k}`).join('\n')}
-
-### 9. Unfair Advantage
-${canvas.unfairAdvantage.map((u) => `- ${u}`).join('\n')}
-
-================================================================================
-PART 2: PROJECT CONCEPT NOTE
-================================================================================
-
-${INITIAL_CONCEPT_NOTE.map(
-  (sec) => `### ${sec.number}. ${sec.title}\n${sec.content}`
-).join('\n\n')}
-
-================================================================================
-PART 3: PRESENTATION SLIDE DECK (8 SLIDES + SPEAKER NOTES)
-================================================================================
-
-${PRESENTATION_SLIDES.map(
-  (sl) => `### Slide 0${sl.slideNumber}: ${sl.title} (${sl.kicker})
-**Core Message:** ${sl.coreMessage}
-${sl.bulletPoints.map((b) => `- ${b}`).join('\n')}
-**Key Metric:** ${sl.metricHighlight.value} — ${sl.metricHighlight.label}
-**Speaker Notes:** ${sl.speakerNotes}`
-).join('\n\n---\n\n')}
-`;
-
-    const blob = new Blob([bundle], { type: 'text/markdown;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'IBM_SkillsBuild_SDG3_AuraWell_Submission_Pack.md';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   return (
@@ -126,7 +39,7 @@ ${sl.bulletPoints.map((b) => `- ${b}`).join('\n')}
           AuraWell SDG 3
         </a>
 
-        {/* Zone 2: 5 concise single-line text navigation links */}
+        {/* Zone 2: 3 concise single-line text navigation links */}
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
           <a
             href="#wellness-agent"
@@ -170,46 +83,7 @@ ${sl.bulletPoints.map((b) => `- ${b}`).join('\n')}
           >
             Health Ledger
           </a>
-          <a
-            href="#lean-canvas"
-            onClick={(e) => {
-              e.preventDefault();
-              setActiveTab('lean_canvas');
-            }}
-            className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
-              activeTab === 'lean_canvas'
-                ? 'text-slate-900 underline underline-offset-8 decoration-2 decoration-emerald-700 font-semibold'
-                : 'hover:text-slate-900'
-            }`}
-          >
-            Lean Canvas
-          </a>
-          <a
-            href="#submission-kit"
-            onClick={(e) => {
-              e.preventDefault();
-              setActiveTab('submission_kit');
-            }}
-            className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
-              activeTab === 'submission_kit'
-                ? 'text-slate-900 underline underline-offset-8 decoration-2 decoration-emerald-700 font-semibold'
-                : 'hover:text-slate-900'
-            }`}
-          >
-            Submission Kit
-          </a>
         </nav>
-
-        {/* Zone 3: 1 primary action */}
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={handleExportFullSubmissionPack}
-            className="px-4 py-2 text-xs font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            Export Submission Pack
-          </button>
-        </div>
       </header>
 
       {/* Workspace Context Subheader & Interactive View Switcher */}
@@ -229,7 +103,7 @@ ${sl.bulletPoints.map((b) => `- ${b}`).join('\n')}
               className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900"
               style={{ textWrap: 'balance' }}
             >
-              Youth Mental Wellness Check-In, Early Disease Triage & Lean Canvas Workspace
+              Youth Mental Wellness Check-In & Early Disease Triage Workspace
             </h1>
           </div>
 
@@ -239,8 +113,6 @@ ${sl.bulletPoints.map((b) => `- ${b}`).join('\n')}
               { id: 'wellness_agent', label: '01. Mental Wellness Agent' },
               { id: 'symptom_triage', label: '02. Symptom Triage' },
               { id: 'health_ledger', label: '03. Cohort Ledger' },
-              { id: 'lean_canvas', label: '04. Lean Canvas PDF' },
-              { id: 'submission_kit', label: '05. Concept Note & Deck' },
             ].map((item) => (
               <button
                 key={item.id}
@@ -283,9 +155,6 @@ ${sl.bulletPoints.map((b) => `- ${b}`).join('\n')}
           />
         )}
 
-        {activeTab === 'lean_canvas' && <LeanCanvasView />}
-
-        {activeTab === 'submission_kit' && <SubmissionKitView />}
       </main>
 
       {/* Quiet, Authentic Footer */}
@@ -296,23 +165,7 @@ ${sl.bulletPoints.map((b) => `- ${b}`).join('\n')}
             <span>·</span>
             <span>UN Sustainable Development Goal 3: Good Health and Well-being</span>
             <span>·</span>
-            <span>Non-Diagnostic Clinical Decision Support & Masterclass Submission Studio</span>
-          </div>
-          <div className="flex items-center gap-4 shrink-0">
-            <button
-              type="button"
-              onClick={() => setActiveTab('lean_canvas')}
-              className="hover:text-slate-900 underline cursor-pointer whitespace-nowrap"
-            >
-              Lean Canvas PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('submission_kit')}
-              className="hover:text-slate-900 underline cursor-pointer whitespace-nowrap"
-            >
-              Concept Note & Presentation
-            </button>
+            <span>Non-Diagnostic Clinical Decision Support</span>
           </div>
         </div>
       </footer>

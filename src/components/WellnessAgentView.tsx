@@ -20,10 +20,10 @@ interface ChatTurn {
   sender: 'user' | 'agent';
   timestamp: string;
   text: string;
-  cognitiveReframe?: string;
-  recommendedAction?: string;
-  breathingCadence?: string;
-  sdgTarget?: string;
+  perspective?: string;
+  nextStep?: string;
+  breathingSuggestion?: string;
+  healthReference?: string;
 }
 
 interface WellnessAgentViewProps {
@@ -32,10 +32,10 @@ interface WellnessAgentViewProps {
 }
 
 const QUICK_PROMPTS = [
-  "I'm overwhelmed by upcoming exams and can't concentrate.",
-  'My sleep schedule is broken and my thoughts race at night.',
-  'Feeling anxious about career placements and falling behind peers.',
-  'Experiencing burnout and low energy across my classes this week.',
+  'Help me plan my day.',
+  'Explain a topic I am learning.',
+  'I want to talk through something on my mind.',
+  'What can you help me with?',
 ];
 
 export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
@@ -63,13 +63,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
       id: 'welcome-1',
       sender: 'agent',
       timestamp: '08:30',
-      text: 'Welcome to your confidential AuraWell check-in. Share what is on your mind today, adjust your PHQ-4 screening or stress triggers on the left, and we will build a practical CBT reframe and grounding step together.',
-      cognitiveReframe:
-        'Instead of "I must have everything figured out today," try: "Checking in honestly with my stress level is the first constructive step."',
-      recommendedAction:
-        'Select your active stress triggers and send a short note about your biggest pressure point right now.',
-      breathingCadence: '4-7-8 Parasympathetic Reset (Inhale 4s · Hold 7s · Exhale 8s)',
-      sdgTarget: 'UN SDG Target 3.4 — Youth Mental Wellness & Early Screening',
+      text: 'Hi, I’m AuraWell. You can ask me about what is on your mind, get help with everyday questions, or use the wellness check-in tools. What would you like to talk about?',
     },
   ]);
 
@@ -133,12 +127,19 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: textToSend,
-          moodScore,
-          triggers: selectedTriggers,
-          phqScore: totalPhqScore,
+          history: messages
+            .filter((turn) => turn.id !== 'welcome-1')
+            .slice(-12)
+            .map((turn) => ({
+              role: turn.sender === 'agent' ? 'assistant' : 'user',
+              text: turn.text,
+            })),
         }),
       });
       const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `Request failed with status ${response.status}.`);
+      }
 
       const agentTurn: ChatTurn = {
         id: `agent-${Date.now()}`,
@@ -146,29 +147,21 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
         text:
           data.reply ||
-          'Thank you for sharing that with me. Let us slow things down and focus on one manageable step for the next 15 minutes.',
-        cognitiveReframe: data.cognitiveReframe,
-        recommendedAction: data.recommendedAction,
-        breathingCadence: data.breathingCadence,
-        sdgTarget: data.sdgTarget,
+          'AuraWell Assistant could not provide a response. Please try again.',
+        perspective: data.perspective,
+        nextStep: data.nextStep,
+        breathingSuggestion: data.breathingSuggestion,
+        healthReference: data.healthReference,
       };
       setMessages((prev) => [...prev, agentTurn]);
-    } catch (_err) {
-      const fallbackTurn: ChatTurn = {
-        id: `agent-fallback-${Date.now()}`,
+    } catch (err) {
+      const errorTurn: ChatTurn = {
+        id: `agent-error-${Date.now()}`,
         sender: 'agent',
         timestamp: nowStr,
-        text: `I hear how much pressure you are carrying right now with ${
-          selectedTriggers[0] || 'daily responsibilities'
-        }. Let's pause and anchor your nervous system before tackling the next task.`,
-        cognitiveReframe:
-          'Instead of "I have to fix everything immediately," try: "Completing one focused 20-minute step is enough for right now."',
-        recommendedAction:
-          'Drink a glass of water, step away from screens for 5 minutes, and run 3 cycles of the 4-7-8 breathing timer.',
-        breathingCadence: '4-7-8 Parasympathetic Reset (Inhale 4s · Hold 7s · Exhale 8s)',
-        sdgTarget: 'UN SDG Target 3.4 — Youth Mental Health Check-In',
+        text: err instanceof Error ? err.message : 'The request failed. Please try again.',
       };
-      setMessages((prev) => [...prev, fallbackTurn]);
+      setMessages((prev) => [...prev, errorTurn]);
     } finally {
       setIsSending(false);
     }
@@ -203,8 +196,8 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
           ? `CBT Check-In + ${completedCycles}x 4-7-8 Breathing Cycles`
           : 'Conversational CBT Check-In & PHQ-4 Screening',
       summaryNote:
-        latestAgentMsg?.recommendedAction ||
-        'Completed structured youth mental wellness check-in and cognitive reframing.',
+        latestAgentMsg?.nextStep ||
+        'Completed a conversational youth mental wellness check-in.',
     };
 
     onAddLedgerEntry(newEntry);
@@ -229,7 +222,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
             UN SDG 3.4 Mental Health & Well-Being · IBM SkillsBuild Problem Statement Track 1
           </div>
           <h2 className="text-lg font-semibold text-slate-900">
-            AI Mental Wellness Check-In, PHQ-4 Screening & CBT Support Agent
+            Wellness Check-In & Open-Topic AI Assistant
           </h2>
           <p className="text-sm text-slate-600 leading-relaxed">
             “Lack of mental health support among youth results in stress and anxiety. This project aims to create an AI-powered chatbot for mental wellness check-ins and guidance.”
@@ -502,10 +495,10 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
               <div>
                 <h3 className="text-base font-semibold text-slate-900">
-                  AuraWell Conversational CBT Check-In Agent
+                  AuraWell AI Assistant
                 </h3>
                 <div className="text-xs text-slate-500 mt-0.5">
-                  Confidential Youth Guidance · Cognitive Behavioral Reframing · Non-Diagnostic Support
+                  Open conversation · Personalized responses · Non-diagnostic health support
                 </div>
               </div>
               <div className="text-xs font-mono tabular-nums text-slate-500 shrink-0">
@@ -516,7 +509,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
             {/* Quick Prompt Starters */}
             <div className="px-6 py-3 bg-slate-50 border-b border-slate-200/80">
               <div className="text-[11px] font-medium text-slate-500 mb-2">
-                Select a check-in prompt or type your own reflection below:
+                Choose a prompt starter or ask about anything below:
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {QUICK_PROMPTS.map((prompt) => (
@@ -544,7 +537,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
                 >
                   <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-1">
                     <span className="font-medium text-slate-600">
-                      {m.sender === 'user' ? 'You (Youth Check-In)' : 'AuraWell CBT Agent'}
+                      {m.sender === 'user' ? 'You' : 'AuraWell Assistant'}
                     </span>
                     <span>·</span>
                     <span className="font-mono tabular-nums">{m.timestamp}</span>
@@ -559,34 +552,41 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
                   >
                     <p>{m.text}</p>
 
-                    {m.sender === 'agent' && m.cognitiveReframe && (
+                    {m.sender === 'agent' &&
+                      (m.perspective || m.nextStep || m.breathingSuggestion || m.healthReference) && (
                       <div className="pt-3 border-t border-slate-200/80 space-y-2.5 text-xs">
-                        <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-1">
-                          <div className="font-semibold text-emerald-800 flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5" />
-                            CBT Cognitive Reframe
-                          </div>
-                          <p className="text-slate-700 leading-relaxed">
-                            {m.cognitiveReframe}
-                          </p>
-                        </div>
-
-                        {m.recommendedAction && (
+                        {m.perspective && (
                           <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-1">
-                            <div className="font-semibold text-slate-900">
-                              Recommended 10-Minute Micro-Action
+                            <div className="font-semibold text-emerald-800 flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              Helpful Context
                             </div>
                             <p className="text-slate-700 leading-relaxed">
-                              {m.recommendedAction}
+                              {m.perspective}
                             </p>
                           </div>
                         )}
 
-                        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 pt-1">
-                          <span>Pacer: {m.breathingCadence}</span>
-                          <span>·</span>
-                          <span>{m.sdgTarget}</span>
-                        </div>
+                        {m.nextStep && (
+                          <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-1">
+                            <div className="font-semibold text-slate-900">
+                              Suggested Next Step
+                            </div>
+                            <p className="text-slate-700 leading-relaxed">
+                              {m.nextStep}
+                            </p>
+                          </div>
+                        )}
+
+                        {(m.breathingSuggestion || m.healthReference) && (
+                          <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 pt-1">
+                            {m.breathingSuggestion && (
+                              <span>Optional breathing: {m.breathingSuggestion}</span>
+                            )}
+                            {m.breathingSuggestion && m.healthReference && <span>·</span>}
+                            {m.healthReference && <span>{m.healthReference}</span>}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -595,7 +595,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
 
               {isSending && (
                 <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
-                  <span>Synthesizing personalized CBT reflection and grounding steps...</span>
+                  <span>Thinking about your message...</span>
                 </div>
               )}
             </div>
@@ -612,7 +612,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Describe how you are feeling today, upcoming exams, sleep, or anxiety triggers..."
+                placeholder="Ask a question or tell me what you would like help with..."
                 className="flex-1 px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 text-slate-900"
               />
               <button

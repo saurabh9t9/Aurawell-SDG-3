@@ -13,12 +13,24 @@ import {
 interface TriageResult {
   urgencyLevel: 'Routine Self-Care' | 'Non-Urgent Clinical Consult' | 'Urgent Medical Evaluation';
   riskScore: number;
+  riskScoreFactors: string[];
   primaryPattern: string;
   clinicalSummary: string;
   differentialConsiderations: string[];
   immediateNextSteps: string[];
   redFlagsToWatch: string[];
-  source?: string;
+  source: string;
+  assessedInputs: TriageInputs;
+}
+
+interface TriageInputs {
+  symptoms: string[];
+  durationDays: number;
+  temperatureC: number;
+  heartRateBpm: number;
+  sleepHours: number;
+  age: number;
+  notes: string;
 }
 
 interface SymptomTriageViewProps {
@@ -26,109 +38,112 @@ interface SymptomTriageViewProps {
   onNavigateToLedger: () => void;
 }
 
+function isValidTriageResult(value: unknown): value is TriageResult {
+  if (typeof value !== 'object' || value === null) return false;
+  const result = value as Record<string, unknown>;
+  const isStringList = (list: unknown) =>
+    Array.isArray(list) && list.every((item) => typeof item === 'string' && item.trim().length > 0);
+  return (
+    ['Routine Self-Care', 'Non-Urgent Clinical Consult', 'Urgent Medical Evaluation'].includes(
+      String(result.urgencyLevel)
+    ) &&
+    Number.isInteger(result.riskScore) &&
+    Number(result.riskScore) >= 0 &&
+    Number(result.riskScore) <= 100 &&
+    isStringList(result.riskScoreFactors) &&
+    typeof result.primaryPattern === 'string' &&
+    typeof result.clinicalSummary === 'string' &&
+    isStringList(result.differentialConsiderations) &&
+    isStringList(result.immediateNextSteps) &&
+    isStringList(result.redFlagsToWatch) &&
+    result.source === 'AuraWell AI' &&
+    typeof result.assessedInputs === 'object' &&
+    result.assessedInputs !== null
+  );
+}
+
 export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
   onAddLedgerEntry,
   onNavigateToLedger,
 }) => {
-  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([
-    'Persistent Cough',
-    'Sore Throat',
-    'Unexplained Fatigue',
-  ]);
-  const [temperatureC, setTemperatureC] = useState<number>(38.1);
-  const [heartRateBpm, setHeartRateBpm] = useState<number>(88);
-  const [durationDays, setDurationDays] = useState<number>(3);
-  const [sleepHours, setSleepHours] = useState<number>(5.5);
+  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
+  const [temperatureC, setTemperatureC] = useState<number>(36.8);
+  const [heartRateBpm, setHeartRateBpm] = useState<number>(72);
+  const [durationDays, setDurationDays] = useState<number>(1);
+  const [sleepHours, setSleepHours] = useState<number>(7.5);
   const [age, setAge] = useState<number>(21);
-  const [notes, setNotes] = useState<string>(
-    'Started after late-night study sessions in campus hostel; mild chills in the evening.'
-  );
+  const [notes, setNotes] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [loggedSuccess, setLoggedSuccess] = useState<boolean>(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [triageResult, setTriageResult] = useState<TriageResult | null>(null);
 
-  const [triageResult, setTriageResult] = useState<TriageResult>({
-    urgencyLevel: 'Non-Urgent Clinical Consult',
-    riskScore: 54,
-    primaryPattern: 'Upper Respiratory Febrile & Somatic Fatigue Cluster',
-    clinicalSummary:
-      'Multi-parameter screening across 3 reported symptoms lasting 3 days, body temperature 38.1°C, resting heart rate 88 BPM, and 5.5h/night sleep recovery indicates a non-urgent clinical consult pathway.',
-    differentialConsiderations: [
-      'Viral upper respiratory tract infection or seasonal influenza prodrome',
-      'Circadian sleep debt amplifying systemic inflammatory response',
-      'Early pharyngitis/tonsillitis warranting targeted throat examination if persistent >4 days',
-    ],
-    immediateNextSteps: [
-      'Schedule a campus infirmary or telemedicine consultation within 24–48 hours.',
-      'Maintain oral hydration (2.5L/day water/electrolytes) and re-check temperature every 6 hours.',
-      'Isolate from shared study spaces until afebrile (<37.5°C) for at least 24 hours.',
-    ],
-    redFlagsToWatch: [
-      'Resting shortness of breath, wheezing, or pleuritic chest tightness',
-      'Persistent fever exceeding 39.2°C (102.5°F) unresponsive to antipyretics',
-      'Severe lethargy, confusion, or inability to tolerate oral fluids',
-    ],
-  });
+  const clearAssessment = () => {
+    setTriageResult(null);
+    setAnalysisError(null);
+    setLoggedSuccess(false);
+  };
 
   const toggleSymptom = (symptom: string) => {
+    clearAssessment();
     setSelectedSymptoms((prev) =>
       prev.includes(symptom) ? prev.filter((s) => s !== symptom) : [...prev, symptom]
     );
   };
 
-  const applyPreset = (preset: 'mild' | 'moderate' | 'urgent') => {
-    if (preset === 'mild') {
-      setSelectedSymptoms(['Unexplained Fatigue', 'Brain Fog / Poor Concentration']);
-      setTemperatureC(36.8);
-      setHeartRateBpm(72);
-      setDurationDays(2);
-      setSleepHours(5.0);
-      setNotes('Post-exam exhaustion and screen strain; no fever or respiratory distress.');
-    } else if (preset === 'moderate') {
-      setSelectedSymptoms(['Persistent Cough', 'Sore Throat', 'Chills / Sweats', 'Unexplained Fatigue']);
-      setTemperatureC(38.4);
-      setHeartRateBpm(94);
-      setDurationDays(4);
-      setSleepHours(5.5);
-      setNotes('4-day productive cough with evening low-grade fever and body aches.');
-    } else {
-      setSelectedSymptoms(['Shortness of Breath', 'Chest Tightness', 'Persistent Cough', 'Chills / Sweats']);
-      setTemperatureC(39.3);
-      setHeartRateBpm(114);
-      setDurationDays(5);
-      setSleepHours(4.5);
-      setNotes('High fever with resting breathlessness when climbing hostel stairs.');
-    }
-  };
-
   const runSymptomAnalysis = async () => {
     if (selectedSymptoms.length === 0 || isAnalyzing) return;
+    const inputs: TriageInputs = {
+      symptoms: [...selectedSymptoms],
+      durationDays,
+      temperatureC,
+      heartRateBpm,
+      sleepHours,
+      age,
+      notes,
+    };
     setIsAnalyzing(true);
+    setTriageResult(null);
+    setAnalysisError(null);
     try {
       const response = await fetch('/api/symptom-triage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symptoms: selectedSymptoms,
-          durationDays,
-          temperatureC,
-          heartRateBpm,
-          sleepHours,
-          age,
-          notes,
-        }),
+        body: JSON.stringify(inputs),
       });
-      const data = await response.json();
-      if (data && data.urgencyLevel) {
-        setTriageResult(data);
+      let data: unknown;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error('AuraWell AI returned an unreadable response. Please try again.');
       }
-    } catch (_err) {
-      // Fallback handled seamlessly
+      if (!response.ok) {
+        const message =
+          typeof data === 'object' && data !== null && 'error' in data && typeof data.error === 'string'
+            ? data.error
+            : 'AuraWell AI could not complete the assessment. Please try again.';
+        throw new Error(message);
+      }
+      if (
+        !isValidTriageResult(data) ||
+        JSON.stringify(data.assessedInputs) !== JSON.stringify(inputs)
+      ) {
+        throw new Error('AuraWell AI returned an incomplete assessment. Please try again.');
+      }
+      setTriageResult(data);
+    } catch (error) {
+      setAnalysisError(
+        error instanceof Error
+          ? error.message
+          : 'Could not reach AuraWell AI. Check your connection and try again.'
+      );
     } finally {
       setIsAnalyzing(false);
     }
   };
 
   const handleSaveTriageToLedger = () => {
+    if (!triageResult) return;
     const now = new Date();
     const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
       now.getDate()
@@ -163,13 +178,13 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
   };
 
   const urgencyStyle =
-    triageResult.urgencyLevel === 'Urgent Medical Evaluation'
+    triageResult?.urgencyLevel === 'Urgent Medical Evaluation'
       ? {
           text: 'text-red-700',
           bg: 'bg-red-50 border-red-200',
           bar: 'bg-red-600',
         }
-      : triageResult.urgencyLevel === 'Non-Urgent Clinical Consult'
+      : triageResult?.urgencyLevel === 'Non-Urgent Clinical Consult'
       ? {
           text: 'text-amber-800',
           bg: 'bg-amber-50 border-amber-200',
@@ -197,31 +212,6 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
           </p>
         </div>
 
-        {/* Interactive Clinical Presets */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <span className="text-xs font-medium text-slate-500 mr-1">Test Case Presets:</span>
-          <button
-            type="button"
-            onClick={() => applyPreset('mild')}
-            className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            Mild Fatigue
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset('moderate')}
-            className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            Febrile Viral
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset('urgent')}
-            className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            Acute Respiratory
-          </button>
-        </div>
       </div>
 
       {/* Main 12-Col Grid */}
@@ -261,11 +251,15 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
                 <input
                   id="temp-range"
                   type="range"
+                  disabled={isAnalyzing}
                   min={36.0}
                   max={40.5}
                   step={0.1}
                   value={temperatureC}
-                  onChange={(e) => setTemperatureC(Number(e.target.value))}
+                  onChange={(e) => {
+                    clearAssessment();
+                    setTemperatureC(Number(e.target.value));
+                  }}
                   className="w-full accent-emerald-700 cursor-pointer"
                 />
                 <div className="flex justify-between text-[11px] text-slate-400 font-mono tabular-nums">
@@ -292,11 +286,15 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
                 <input
                   id="hr-range"
                   type="range"
+                  disabled={isAnalyzing}
                   min={52}
                   max={135}
                   step={1}
                   value={heartRateBpm}
-                  onChange={(e) => setHeartRateBpm(Number(e.target.value))}
+                  onChange={(e) => {
+                    clearAssessment();
+                    setHeartRateBpm(Number(e.target.value));
+                  }}
                   className="w-full accent-emerald-700 cursor-pointer"
                 />
                 <div className="flex justify-between text-[11px] text-slate-400 font-mono tabular-nums">
@@ -319,11 +317,15 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
                 <input
                   id="duration-range"
                   type="range"
+                  disabled={isAnalyzing}
                   min={1}
                   max={14}
                   step={1}
                   value={durationDays}
-                  onChange={(e) => setDurationDays(Number(e.target.value))}
+                  onChange={(e) => {
+                    clearAssessment();
+                    setDurationDays(Number(e.target.value));
+                  }}
                   className="w-full accent-emerald-700 cursor-pointer"
                 />
                 <div className="flex justify-between text-[11px] text-slate-400 font-mono tabular-nums">
@@ -335,28 +337,81 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
 
               {/* Age */}
               <div className="space-y-1.5">
-                <div className="flex justify-between text-xs">
+                <div className="flex items-center justify-between gap-3 text-xs">
                   <label htmlFor="age-range" className="font-medium text-slate-700">
                     Participant Age
                   </label>
-                  <span className="font-mono tabular-nums font-semibold text-slate-900">
-                    {age} yrs
-                  </span>
+                  <label className="flex items-center gap-1.5 text-slate-600">
+                    <span>Edit age</span>
+                    <input
+                      type="number"
+                      aria-label="Edit age in years"
+                      title="Enter your age from 1 to 120 years"
+                      disabled={isAnalyzing}
+                      min={1}
+                      max={120}
+                      step={1}
+                      value={age}
+                      onChange={(e) => {
+                        clearAssessment();
+                        const value = Number(e.target.value);
+                        if (e.target.value && Number.isInteger(value) && value >= 1 && value <= 120) {
+                          setAge(value);
+                        }
+                      }}
+                      className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-right text-sm font-semibold font-mono tabular-nums text-slate-900 focus:outline-none focus:border-slate-900 disabled:bg-slate-100"
+                    />
+                  </label>
                 </div>
                 <input
                   id="age-range"
                   type="range"
-                  min={15}
-                  max={60}
+                  disabled={isAnalyzing}
+                  min={1}
+                  max={120}
                   step={1}
                   value={age}
-                  onChange={(e) => setAge(Number(e.target.value))}
+                  onChange={(e) => {
+                    clearAssessment();
+                    setAge(Number(e.target.value));
+                  }}
                   className="w-full accent-emerald-700 cursor-pointer"
                 />
                 <div className="flex justify-between text-[11px] text-slate-400 font-mono tabular-nums">
-                  <span>15 yrs</span>
-                  <span>35 yrs</span>
+                  <span>1 yr</span>
                   <span>60 yrs</span>
+                  <span>120 yrs</span>
+                </div>
+              </div>
+
+              {/* Average Sleep */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <label htmlFor="sleep-range" className="font-medium text-slate-700">
+                    Average Sleep
+                  </label>
+                  <span className="font-mono tabular-nums font-semibold text-slate-900">
+                    {sleepHours} hours/night
+                  </span>
+                </div>
+                <input
+                  id="sleep-range"
+                  type="range"
+                  disabled={isAnalyzing}
+                  min={0}
+                  max={12}
+                  step={0.5}
+                  value={sleepHours}
+                  onChange={(e) => {
+                    clearAssessment();
+                    setSleepHours(Number(e.target.value));
+                  }}
+                  className="w-full accent-emerald-700 cursor-pointer"
+                />
+                <div className="flex justify-between text-[11px] text-slate-400 font-mono tabular-nums">
+                  <span>0 hours</span>
+                  <span>6 hours</span>
+                  <span>12 hours</span>
                 </div>
               </div>
             </div>
@@ -375,7 +430,11 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedSymptoms(['Unexplained Fatigue'])}
+                disabled={isAnalyzing}
+                onClick={() => {
+                  clearAssessment();
+                  setSelectedSymptoms(['Unexplained Fatigue']);
+                }}
                 className="text-xs text-slate-500 hover:text-slate-900 underline cursor-pointer"
               >
                 Reset Selection
@@ -395,6 +454,7 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
                         <button
                           key={item}
                           type="button"
+                          disabled={isAnalyzing}
                           onClick={() => toggleSymptom(item)}
                           className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                             active
@@ -419,7 +479,11 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
                 id="clinical-notes"
                 rows={2}
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                disabled={isAnalyzing}
+                onChange={(e) => {
+                  clearAssessment();
+                  setNotes(e.target.value);
+                }}
                 className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 text-slate-800"
               />
             </div>
@@ -432,30 +496,59 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
             >
               <RefreshCw className={`w-4 h-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
               {isAnalyzing
-                ? 'Running Multi-Parameter Clinical Triage...'
-                : 'Run AI Early Symptom Triage Analysis'}
+                ? 'AuraWell AI is analyzing your current inputs...'
+                : 'Analyze Symptoms with AuraWell AI'}
             </button>
+            {analysisError && (
+              <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+                {analysisError}
+              </p>
+            )}
           </section>
         </div>
 
         {/* Right 6 Cols: Structured Clinical Risk Output */}
         <div className="lg:col-span-6 space-y-6">
           <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
+            {triageResult ? (
+              <>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
                 <div className="text-xs text-slate-500">
-                  Clinical Decision Support Output · Non-Diagnostic Stratification
+                  AuraWell AI Assessment · Non-Diagnostic Decision Support
                 </div>
                 <h3 className="text-base font-semibold text-slate-900 mt-0.5">
                   {triageResult.primaryPattern}
                 </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Assessed for age {triageResult.assessedInputs.age} ·{' '}
+                  {triageResult.assessedInputs.symptoms.join(', ')} ·{' '}
+                  {triageResult.assessedInputs.durationDays}{' '}
+                  {triageResult.assessedInputs.durationDays === 1 ? 'day' : 'days'}
+                </p>
               </div>
 
               <div className="text-right shrink-0">
                 <div className="text-2xl font-bold font-mono tabular-nums text-slate-900">
                   {triageResult.riskScore}/100
                 </div>
-                <div className="text-xs text-slate-500">Composite Risk Index</div>
+                <div className="text-xs text-slate-500">Input-based screening index</div>
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5">
+              <div className="text-[11px] font-medium text-slate-600">
+                Score factors (screening aid only; not a diagnosis)
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {triageResult.riskScoreFactors.map((factor) => (
+                  <span
+                    key={factor}
+                    className="rounded-md bg-white border border-slate-200 px-2 py-1 text-[11px] text-slate-700"
+                  >
+                    {factor}
+                  </span>
+                ))}
               </div>
             </div>
 
@@ -467,7 +560,8 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
                   <span>Pathway: {triageResult.urgencyLevel}</span>
                 </div>
                 <span className="text-xs font-mono tabular-nums text-slate-600">
-                  Temp {temperatureC.toFixed(1)}°C · HR {heartRateBpm} BPM
+                  Temp {triageResult.assessedInputs.temperatureC.toFixed(1)}°C · HR{' '}
+                  {triageResult.assessedInputs.heartRateBpm} BPM
                 </span>
               </div>
               <p className="text-xs text-slate-700 leading-relaxed">
@@ -555,6 +649,16 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
                 </button>
               )}
             </div>
+              </>
+            ) : (
+              <div className="min-h-64 flex flex-col items-center justify-center text-center gap-3 py-12">
+                <Activity className="w-8 h-8 text-emerald-700" />
+                <h3 className="text-base font-semibold text-slate-900">Your AI assessment will appear here</h3>
+                <p className="max-w-sm text-sm text-slate-600">
+                  Select your current symptoms, review the vital signs, then run an analysis. Results are generated from those inputs and clear when you change them.
+                </p>
+              </div>
+            )}
           </section>
         </div>
       </div>
