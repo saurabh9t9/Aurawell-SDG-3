@@ -15,11 +15,9 @@ Use a Node.js host that can run a long-lived server process and configure enviro
 
 The server serves `dist/` when `NODE_ENV=production`. The deployment environment must preserve the server-side environment variables and provide a Node version compatible with the project dependencies (Node.js 22.12 or newer is recommended).
 
-## Vercel status
+## Vercel
 
-A root `vercel.json` is included to serve the Vite SPA and preserve client-side routes on Vercel. This configuration supports the frontend build, but it does not provide the Express API routes (`/api/health`, `/api/wellness-chat`, or `/api/symptom-triage`) on Vercel by itself.
-
-Before hosting on Vercel, migrate or wrap the Express endpoints as Vercel Functions and configure the SPA/API routes; then add `GEMINI_API_KEY` and `GEMINI_MODEL` as private project environment variables. Never add the Gemini key to a `VITE_*` variable or client bundle.
+The root `vercel.json` builds the Vite frontend and preserves client-side routes. The catch-all function in `api/` runs the Express API routes (`/api/health`, `/api/wellness-chat`, and `/api/symptom-triage`) as Vercel Functions. Configure `GEMINI_API_KEY` and optionally `GEMINI_MODEL` as private project environment variables. Never add the Gemini key to a `VITE_*` variable or client bundle.
 
 ## Operational and safety checklist
 

@@ -169,11 +169,8 @@ function buildFallbackWellnessReply(): {
   };
 }
 
-async function startServer() {
-  const app = express();
-  const PORT = Number(process.env.PORT || 3000);
-
-  app.use(express.json());
+const app = express();
+app.use(express.json());
 
   app.get('/api/health', (_req, res) => {
     res.json({
@@ -433,6 +430,9 @@ Mention the supplied age, duration, selected symptoms, temperature, and heart ra
     }
   });
 
+async function startServer() {
+  const PORT = Number(process.env.PORT || 3000);
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -452,4 +452,8 @@ Mention the supplied age, duration, selected symptoms, temperature, and heart ra
   });
 }
 
-startServer();
+export default app;
+
+if (process.env.VERCEL !== '1') {
+  void startServer();
+}

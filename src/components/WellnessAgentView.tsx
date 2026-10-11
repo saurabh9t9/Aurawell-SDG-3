@@ -136,7 +136,12 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
             })),
         }),
       });
-      const data = await response.json();
+      let data: { error?: string; reply?: string; perspective?: string; nextStep?: string; breathingSuggestion?: string; healthReference?: string };
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error('AuraWell Assistant returned an unreadable response. Check that the API function is deployed on Vercel.');
+      }
       if (!response.ok) {
         throw new Error(data.error || `Request failed with status ${response.status}.`);
       }
