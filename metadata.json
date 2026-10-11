@@ -1,0 +1,6 @@
+{
+  "name": "AuraWell — SDG 3 Health & Wellness Platform",
+  "description": "AI-powered youth mental wellness screening, early disease symptom triage, and interactive Lean Canvas & Project Submission studio for UN SDG 3: Good Health and Well-being.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
