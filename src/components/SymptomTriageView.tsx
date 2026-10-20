@@ -197,28 +197,27 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
         };
 
   return (
-    <div className="space-y-8">
+    <div className="triage-view space-y-8">
       {/* Header Banner */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="space-y-1 max-w-3xl">
-          <div className="text-xs font-medium text-slate-500">
-            UN SDG 3.3 & 3.8 Early Disease Detection · IBM SkillsBuild Problem Statement Track 2
+      <div className="view-intro triage-intro">
+        <div className="view-intro-copy">
+          <div className="view-intro-label">
+            <Activity aria-hidden="true" className="h-3.5 w-3.5" />
+            SYMPTOM GUIDE
           </div>
-          <h2 className="text-lg font-semibold text-slate-900">
-            AI Early Disease Detection & Multi-Parameter Symptom Triage Engine
-          </h2>
-          <p className="text-sm text-slate-600 leading-relaxed">
-            Combines physiological vital signs (body temperature, resting heart rate, sleep recovery) with multi-system symptom clusters to stratify clinical urgency and surface early warning signs.
+          <h2>A clearer picture of how you’re feeling</h2>
+          <p>
+            Share what you’ve noticed and explore possible next steps. This
+            supportive guide is not a diagnosis or a substitute for medical care.
           </p>
         </div>
-
       </div>
 
       {/* Main 12-Col Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left 6 Cols: Symptom Cluster Selector + Vital Sign Sliders */}
         <div className="lg:col-span-6 space-y-6">
-          <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
+          <section className="triage-input-panel bg-white border border-slate-200 rounded-xl p-6 space-y-5">
             <div className="flex items-baseline justify-between border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-base font-semibold text-slate-900">
@@ -418,7 +417,7 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
           </section>
 
           {/* Symptom Catalog */}
-          <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
+          <section className="symptom-panel bg-white border border-slate-200 rounded-xl p-6 space-y-5">
             <div className="flex items-baseline justify-between border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-base font-semibold text-slate-900">
@@ -509,7 +508,7 @@ export const SymptomTriageView: React.FC<SymptomTriageViewProps> = ({
 
         {/* Right 6 Cols: Structured Clinical Risk Output */}
         <div className="lg:col-span-6 space-y-6">
-          <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
+          <section className="assessment-panel bg-white border border-slate-200 rounded-xl p-6 space-y-6">
             {triageResult ? (
               <>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">

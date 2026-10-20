@@ -32,10 +32,10 @@ interface WellnessAgentViewProps {
 }
 
 const QUICK_PROMPTS = [
-  'Help me plan my day.',
-  'Explain a topic I am learning.',
+  'I have been feeling overwhelmed lately.',
+  'Can you help me check in with myself?',
   'I want to talk through something on my mind.',
-  'What can you help me with?',
+  'What are some gentle ways to manage stress?',
 ];
 
 export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
@@ -63,7 +63,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
       id: 'welcome-1',
       sender: 'agent',
       timestamp: '08:30',
-      text: 'Hi, I’m AuraWell. You can ask me about what is on your mind, get help with everyday questions, or use the wellness check-in tools. What would you like to talk about?',
+      text: 'Hi, I’m AuraWell Assistant. I’m here to support your wellbeing. We can talk through what’s on your mind, check in with how you’re feeling, explore gentle ways to manage stress, or try a breathing exercise. What feels helpful right now?',
     },
   ]);
 
@@ -223,28 +223,28 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
       : { name: 'Exhale Completely Through Mouth', remaining: 19 - breathSecond, progress: ((breathSecond - 10) / 8) * 100 };
 
   return (
-    <div className="space-y-8">
+    <div className="wellness-view space-y-8">
       {/* Problem Statement Context Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="space-y-1 max-w-3xl">
-          <div className="text-xs font-medium text-slate-500">
-            UN SDG 3.4 Mental Health & Well-Being · IBM SkillsBuild Problem Statement Track 1
+      <div className="view-intro">
+        <div className="view-intro-copy">
+          <div className="view-intro-label">
+            <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
+            A GENTLE CHECK-IN
           </div>
-          <h2 className="text-lg font-semibold text-slate-900">
-            Wellness Check-In & Open-Topic AI Assistant
-          </h2>
-          <p className="text-sm text-slate-600 leading-relaxed">
-            “Lack of mental health support among youth results in stress and anxiety. This project aims to create an AI-powered chatbot for mental wellness check-ins and guidance.”
+          <h2>Check in, then take it one step at a time</h2>
+          <p>
+            Reflect on how you’re feeling, talk something through, or try a
+            breathing exercise. Start wherever feels comfortable.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
+        <div className="view-intro-actions flex flex-wrap items-center gap-3 shrink-0">
           <button
             onClick={handleLogToLedger}
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <PlusCircle className="w-4 h-4 text-emerald-700" />
-            Save Check-In to Ledger
+            Save this check-in
           </button>
           {savedNotice && (
             <button
@@ -263,7 +263,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
         {/* Left Column (5 cols): Validated PHQ-4 Screening + Triggers + Breathing Pacer */}
         <div className="lg:col-span-5 space-y-6">
           {/* Card 1: PHQ-4 & Daily Vitals Check-In */}
-          <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
+          <section className="checkin-panel bg-white border border-slate-200 rounded-xl p-6 space-y-5">
             <div className="flex items-baseline justify-between border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-base font-semibold text-slate-900">
@@ -399,7 +399,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
           </section>
 
           {/* Card 2: Youth Stress Triggers */}
-          <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+          <section className="wellness-detail-panel bg-white border border-slate-200 rounded-xl p-6 space-y-4">
             <div>
               <h3 className="text-base font-semibold text-slate-900">
                 02. Active Youth Stressors
@@ -430,7 +430,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
           </section>
 
           {/* Card 3: Interactive 4-7-8 Parasympathetic Breathing Pacer */}
-          <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+          <section className="breathing-panel bg-white border border-slate-200 rounded-xl p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-base font-semibold text-slate-900">
@@ -499,7 +499,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
 
         {/* Right Column (7 cols): Conversational AI Mental Wellness Agent */}
         <div className="lg:col-span-7 space-y-6">
-          <section className="bg-white border border-slate-200 rounded-xl flex flex-col h-[740px]">
+          <section className="assistant-panel bg-white border border-slate-200 rounded-xl flex flex-col h-[740px]">
             {/* Chat Header */}
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
               <div>
@@ -518,7 +518,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
             {/* Quick Prompt Starters */}
             <div className="px-6 py-3 bg-slate-50 border-b border-slate-200/80">
               <div className="text-[11px] font-medium text-slate-500 mb-2">
-                Choose a prompt starter or ask about anything below:
+                Choose a prompt or ask about wellbeing:
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {QUICK_PROMPTS.map((prompt) => (
@@ -621,7 +621,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Ask a question or tell me what you would like help with..."
+                placeholder="Share what’s on your mind or ask a wellness question..."
                 className="flex-1 px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 text-slate-900"
               />
               <button
@@ -636,7 +636,7 @@ export const WellnessAgentView: React.FC<WellnessAgentViewProps> = ({
           </section>
 
           {/* Safety & Crisis Escalation Banner */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="safety-panel bg-white border border-slate-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-900">
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />

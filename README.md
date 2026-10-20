@@ -6,7 +6,7 @@ AuraWell is a web-based wellness and early symptom-triage prototype aligned with
 
 ## Features
 
-- **AuraWell Assistant** — a general-purpose conversational assistant powered by the configured Gemini model.
+- **AuraWell Assistant** — a conversational guide for medical and wellbeing questions and the AuraWell project’s purpose, features, and concepts. A server-side scope check redirects unrelated requests such as general AI theory, coding, and homework before answer generation.
 - **Symptom Triage** — submit selected symptoms, age, temperature, resting heart rate, symptom duration, sleep, and optional notes for an AI-generated non-diagnostic assessment.
 - **Input-based screening index** — a deterministic score calculated from the triage inputs, with its contributing factors shown in the result.
 - **Health Ledger** — view and manage check-ins during the current browser session. The ledger starts empty and displays only records added during your session.

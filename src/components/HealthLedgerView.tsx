@@ -141,9 +141,9 @@ export const HealthLedgerView: React.FC<HealthLedgerViewProps> = ({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="health-ledger-view space-y-8">
       {/* Top Quantitative KPI Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="ledger-metrics grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <div className="text-xs font-medium text-slate-500">
             Total SDG 3 Screenings Logged
@@ -194,7 +194,7 @@ export const HealthLedgerView: React.FC<HealthLedgerViewProps> = ({
       </div>
 
       {/* Filter & Action Toolbar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="ledger-toolbar bg-white border border-slate-200 rounded-xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Segmented Status Filter */}
         <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-lg">
           {(['ALL', 'Nominal', 'Elevated Stress', 'Clinical Follow-Up'] as const).map(
@@ -252,7 +252,7 @@ export const HealthLedgerView: React.FC<HealthLedgerViewProps> = ({
       {showAddForm && (
         <form
           onSubmit={handleCreateManualEntry}
-          className="bg-white border border-slate-200 rounded-xl p-6 space-y-4"
+          className="ledger-entry-form bg-white border border-slate-200 rounded-xl p-6 space-y-4"
         >
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 className="text-sm font-semibold text-slate-900">
@@ -352,7 +352,7 @@ export const HealthLedgerView: React.FC<HealthLedgerViewProps> = ({
 
       {/* High-Density Data Grid + Selected Record Inspector */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-8 bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="ledger-records lg:col-span-8 bg-white border border-slate-200 rounded-xl overflow-hidden">
           {filteredEntries.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <div className="text-sm font-semibold text-slate-900">
@@ -475,7 +475,7 @@ export const HealthLedgerView: React.FC<HealthLedgerViewProps> = ({
         </div>
 
         {/* Right 4 Cols: Selected Check-In Record Clinical Inspector */}
-        <div className="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+        <div className="ledger-inspector lg:col-span-4 bg-white border border-slate-200 rounded-xl p-6 space-y-4">
           {selectedEntry ? (
             <>
               <div className="border-b border-slate-100 pb-3 flex items-baseline justify-between">
